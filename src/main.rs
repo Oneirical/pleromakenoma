@@ -1,11 +1,11 @@
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 use bevy::{prelude::*, render::camera::Viewport, core_pipeline::clear_color::ClearColorConfig};
-use bevy_easings::*;
+use bevy_tweening::{*, lens::TransformPositionLens};
 use rand::prelude::*;
 
 fn main() {
     App::new()
-        .add_plugins(bevy_easings::EasingsPlugin)
+        .add_plugins(bevy_tweening::TweeningPlugin)
         .add_plugins(
             DefaultPlugins
                 .set(ImagePlugin::default_nearest())
@@ -39,10 +39,11 @@ struct PolarityMarker{
 struct Card{
     value: i8,
     position: u8,
+    active: bool,
 }
 
 #[derive(Event)]
-struct CardPlacedEvent(Card);
+struct CardPlacedEvent(Card, PolarityMarker);
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>) {
     // Rectangle
@@ -246,6 +247,20 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         );
         let card_value = card_value;
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        // Create a single animation (tween) to move an entity.
+        let tween = Tween::new(
+            // Use a quadratic easing on both endpoints.
+            EaseFunction::QuadraticInOut,
+            // Animation time.
+            Duration::from_secs(1),
+            // The lens gives access to the Transform component of the Entity,
+            // for the Animator to animate it. It also contains the start and
+            // end values respectively associated with the progress ratios 0. and 1.
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*i as f32, y: -400., z: 0. },
+                end: Vec3::new(-400.+80.*i as f32, -270., 0.),
+            },
+        );
         commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -257,15 +272,10 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         },
         Card{
             value: card_value,
-            position: i
+            position: i,
+            active: false,
         },
-        Transform::default().with_translation(Vec3 { x: -400.+80.*i as f32, y: -400., z: 0. }).ease_to(
-            Transform::default().with_translation(Vec3::new(-400.+80.*i as f32, -270., 0.)),
-            bevy_easings::EaseFunction::QuadraticIn,
-            bevy_easings::EasingType::Once {
-                duration: std::time::Duration::from_secs(1),
-            },
-        ),
+        Animator::new(tween),
     ));
     }
 
@@ -281,8 +291,20 @@ fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
             Vec2::new(16.0, 16.0),
             80, 2, None, None
         );
-        let card_value = 3;
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        let tween = Tween::new(
+            // Use a quadratic easing on both endpoints.
+            EaseFunction::QuadraticInOut,
+            // Animation time.
+            Duration::from_secs(1),
+            // The lens gives access to the Transform component of the Entity,
+            // for the Animator to animate it. It also contains the start and
+            // end values respectively associated with the progress ratios 0. and 1.
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*ev.0.position as f32, y: -400., z: 0. },
+                end: Vec3::new(-400.+80.*ev.0.position as f32, -270., 0.),
+            },
+        );
         commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -294,15 +316,10 @@ fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
         },
         Card{
             value: card_value,
-            position: ev.0.position
+            position: ev.0.position,
+            active: false,
         },
-        Transform::default().with_translation(Vec3 { x: -200.+80.*ev.0.value as f32, y: -400., z: 0. }).ease_to(
-            Transform::default().with_translation(Vec3::new(-200.+80.*ev.0.value as f32, -270., 0.)),
-            bevy_easings::EaseFunction::QuadraticIn,
-            bevy_easings::EasingType::Once {
-                duration: std::time::Duration::from_secs(1),
-            },
-        ),
+        Animator::new(tween),
     ));
     }
 
@@ -311,22 +328,36 @@ fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
 
 
 fn character_movement(
-    mut characters: Query<(&mut Transform, &PolarityMarker)>,
+    mut query: Query<(Entity, &mut Card)>,
+    mut commands: Commands,
     input: Res<Input<KeyCode>>,
-    time: Res<Time>,
 ) {
-    for (mut transform, _) in &mut characters {
-        if input.pressed(KeyCode::W) {
-            transform.translation.y += 100.0 * time.delta_seconds();
+    for (entity_id, card) in query.iter_mut() {
+        let card_num = card.position;
+        let tween = Tween::new(
+            // Use a quadratic easing on both endpoints.
+            EaseFunction::BackInOut,
+            // Animation time.
+            Duration::from_secs(1),
+            // The lens gives access to the Transform component of the Entity,
+            // for the Animator to animate it. It also contains the start and
+            // end values respectively associated with the progress ratios 0. and 1.
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*card_num as f32, y: -270., z: 0. },
+                end: Vec3::new(-400.+80.*card_num as f32, -240., 0.),
+            },
+        );
+        if input.pressed(KeyCode::Q) && card_num == 0 {
+            commands.entity(entity_id).insert(Animator::new(tween));
         }
-        if input.pressed(KeyCode::S) {
-            transform.translation.y -= 100.0 * time.delta_seconds();
+        else if input.pressed(KeyCode::E) && card_num == 2 {
+            commands.entity(entity_id).insert(Animator::new(tween));
         }
-        if input.pressed(KeyCode::D) {
-            transform.translation.x += 100.0 * time.delta_seconds();
+        else if input.pressed(KeyCode::R) && card_num == 3 {
+            commands.entity(entity_id).insert(Animator::new(tween));
         }
-        if input.pressed(KeyCode::A) {
-            transform.translation.x -= 100.0 * time.delta_seconds();
+        else if input.pressed(KeyCode::W) && card_num == 1 {
+            commands.entity(entity_id).insert(Animator::new(tween));
         }
     }
 }
