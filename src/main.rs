@@ -23,10 +23,10 @@ fn main() {
         .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
         .add_systems(Startup, setup)
         .add_systems(Startup, distribute_starting_cards)
-        .add_systems(Update, summon_card)
         .add_systems(Update, select_card)
         .add_systems(Update, move_text_labels)
         .add_systems(Update, push_world_polarity)
+        .add_systems(Update, banish_and_replace)
         .add_event::<CardPlacedEvent>()
         .run();
 }
@@ -317,8 +317,81 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
 
 }
 
-fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>, mut ev_card: EventReader<CardPlacedEvent>){
-    for ev in ev_card.iter(){
+fn move_text_labels(
+    mut query: Query<(Entity, &mut TextLabel)>,
+    mut commands: Commands,
+){
+    if unsafe {
+        WORLD_PHASE != 1 && WORLD_PHASE != 5
+    }{
+        return;
+    }
+    if (unsafe { WORLD_PHASE } == 1){
+        for (entity_id, text) in query.iter_mut() {
+            let text_num = text.number;
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    start: Vec3::new(-400.+80.*text_num as f32, -300., 0.),
+                    end: Vec3::new(-40., 220.-120.*text_num as f32, 0.),
+                },
+            ).with_completed(|_entity, _tween|{world_phase_update(3)});
+            commands.entity(entity_id).insert(Animator::new(tween));
+            world_phase_update(2);
+    
+        }
+    }
+    else if (unsafe { WORLD_PHASE } == 5){
+        for (entity_id, text) in query.iter_mut() {
+            let text_num = text.number;
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    end: Vec3::new(-400.+80.*text_num as f32, -300., 0.),
+                    start: Vec3::new(-40., 220.-120.*text_num as f32, 0.),
+                },
+            ).with_completed(|_entity, _tween|{world_phase_update(0)});
+            commands.entity(entity_id).insert(Animator::new(tween));
+            world_phase_update(6);
+        }
+    }
+
+
+}
+
+fn world_phase_update(new_phase: u8){
+    unsafe {
+        WORLD_PHASE = new_phase;
+    }
+}
+
+fn banish_and_replace(
+    mut query: Query<(Entity, &mut Card)>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>
+){
+    if unsafe {
+        WORLD_PHASE != 4
+    }{
+        return;
+    }
+    for (entity_id, card) in query.iter_mut() {
+        if !card.active{
+            continue;
+        }
+        let card_num = card.position;
+        let tween = Tween::new(
+            EaseFunction::QuadraticIn,
+            Duration::from_millis(300),
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*card_num as f32, y: -220., z: 0. },
+                end: Vec3::new(-400.+80.*card_num as f32, -400., 0.),
+            },
+        );
+        commands.entity(entity_id).insert(Animator::new(tween));
+        commands.entity(entity_id).remove::<Card>();
         let card_value = rand::thread_rng().gen_range(1..7);
         let img_path = "spritesheet.png".to_owned();
         let texture_handle = asset_server.load(&img_path);
@@ -332,14 +405,14 @@ fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
             EaseFunction::QuadraticInOut,
             Duration::from_secs(1),
             TransformPositionLens {
-                start: Vec3 { x: -400.+80.*ev.0.position as f32, y: -400., z: 0. },
-                end: Vec3::new(-400.+80.*ev.0.position as f32, -270., 0.),
+                start: Vec3 { x: -400.+80.*card.position as f32, y: -400., z: 0. },
+                end: Vec3::new(-400.+80.*card.position as f32, -250., 0.),
             },
         );
         commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
-                index : card_value as usize,
+                index : (card_value-1) as usize,
                 custom_size: Some(Vec2::new(64.0, 64.0)),
                 ..default()
             },
@@ -347,45 +420,12 @@ fn summon_card(mut commands: Commands, asset_server: Res<AssetServer>, mut textu
         },
         Card{
             value: card_value,
-            position: ev.0.position,
+            position: card.position,
             active: false,
         },
         Animator::new(tween),
     ));
-    }
-
-
-}
-
-fn move_text_labels(
-    mut query: Query<(Entity, &mut TextLabel)>,
-    mut commands: Commands,
-){
-    if unsafe {
-        WORLD_PHASE != 1
-    }{
-        return;
-    }
-    for (entity_id, text) in query.iter_mut() {
-        let text_num = text.number;
-        let tween = Tween::new(
-            EaseFunction::QuadraticInOut,
-            Duration::from_secs(1),
-            TransformPositionLens {
-                start: Vec3::new(-400.+80.*text_num as f32, -300., 0.),
-                end: Vec3::new(-40., 220.-120.*text_num as f32, 0.),
-            },
-        ).with_completed(|_entity, _tween|{world_phase_update(3)});
-        commands.entity(entity_id).insert(Animator::new(tween));
-        world_phase_update(2);
-
-    }
-
-}
-
-fn world_phase_update(new_phase: u8){
-    unsafe {
-        WORLD_PHASE = new_phase;
+        world_phase_update(5);
     }
 }
 
@@ -406,7 +446,12 @@ fn push_world_polarity(
             if input.just_released(KeyCode::Key1) && pol.world == 0 {
                 let current_pol = pol.polarity;
                 pol.polarity -= value_incoming;
-                assert!(current_pol != pol.polarity);
+                if pol.polarity > 6{
+                    pol.polarity = 6;
+                }
+                else if pol.polarity < -6{
+                    pol.polarity = -6;
+                }
                 let start_vector: Vec3;
                 let end_vector: Vec3;
                 let mut start_x = 0.;
@@ -427,7 +472,6 @@ fn push_world_polarity(
                         end_x = -110. + (pol.polarity+1) as f32*80.;
                     }
                 }
-                assert!(start_x != end_x);
                 if pol.dimension{
                     start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
                     end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
@@ -450,7 +494,12 @@ fn push_world_polarity(
             else if input.just_released(KeyCode::Key2) && pol.world == 1 {
                 let current_pol = pol.polarity;
                 pol.polarity -= value_incoming;
-                assert!(current_pol != pol.polarity);
+                if pol.polarity > 6{
+                    pol.polarity = 6;
+                }
+                else if pol.polarity < -6{
+                    pol.polarity = -6;
+                }
                 let start_vector: Vec3;
                 let end_vector: Vec3;
                 let mut start_x = 0.;
@@ -471,7 +520,6 @@ fn push_world_polarity(
                         end_x = -110. + (pol.polarity+1) as f32*80.;
                     }
                 }
-                assert!(start_x != end_x);
                 if pol.dimension{
                     start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
                     end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
@@ -500,7 +548,6 @@ fn push_world_polarity(
                 else if pol.polarity < -6{
                     pol.polarity = -6;
                 }
-                assert!(current_pol != pol.polarity);
                 let start_vector: Vec3;
                 let end_vector: Vec3;
                 let mut start_x = 0.;
@@ -521,7 +568,6 @@ fn push_world_polarity(
                         end_x = -110. + (pol.polarity+1) as f32*80.;
                     }
                 }
-                assert!(start_x != end_x);
                 if pol.dimension{
                     start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
                     end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
@@ -544,7 +590,12 @@ fn push_world_polarity(
             else if input.just_released(KeyCode::Key4) && pol.world == 3 {
                 let current_pol = pol.polarity;
                 pol.polarity -= value_incoming;
-                assert!(current_pol != pol.polarity);
+                if pol.polarity > 6{
+                    pol.polarity = 6;
+                }
+                else if pol.polarity < -6{
+                    pol.polarity = -6;
+                }
                 let start_vector: Vec3;
                 let end_vector: Vec3;
                 let mut start_x = 0.;
@@ -565,7 +616,6 @@ fn push_world_polarity(
                         end_x = -110. + (pol.polarity+1) as f32*80.;
                     }
                 }
-                assert!(start_x != end_x);
                 if pol.dimension{
                     start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
                     end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
@@ -598,8 +648,8 @@ fn select_card(
         for (entity_id, mut card) in query.iter_mut() {
             let card_num = card.position;
             let tween = Tween::new(
-                EaseFunction::BackInOut,
-                Duration::from_secs(1),
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(300),
                 TransformPositionLens {
                     start: Vec3 { x: -400.+80.*card_num as f32, y: -250., z: 0. },
                     end: Vec3::new(-400.+80.*card_num as f32, -220., 0.),
