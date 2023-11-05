@@ -50,6 +50,11 @@ struct TextLabel{
     number: u8
 }
 
+#[derive(Component)]
+struct Deck{
+    capacity: u16
+}
+
 #[derive(Event)]
 struct CardPlacedEvent(Card); 
 
@@ -442,152 +447,17 @@ fn push_world_polarity(
         }
         if value_incoming == 0{ return;}
         for (entity_id, mut pol) in query.iter_mut() {
-            //dbg!(pol.world);
-            if input.just_released(KeyCode::Key1) && pol.world == 0 {
-                let current_pol = pol.polarity;
-                pol.polarity -= value_incoming;
-                if pol.polarity > 6{
-                    pol.polarity = 6;
+            if input.just_released(KeyCode::Key1)
+            || input.just_released(KeyCode::Key2)
+            || input.just_released(KeyCode::Key3)
+            || input.just_released(KeyCode::Key4) {
+                if input.just_released(KeyCode::Key1) && pol.world != 0
+                || input.just_released(KeyCode::Key2) && pol.world != 1
+                || input.just_released(KeyCode::Key3) && pol.world != 2
+                || input.just_released(KeyCode::Key4) && pol.world != 3
+                {
+                    continue;
                 }
-                else if pol.polarity < -6{
-                    pol.polarity = -6;
-                }
-                let start_vector: Vec3;
-                let end_vector: Vec3;
-                let mut start_x = 0.;
-                let mut end_x = start_x;
-                if current_pol != 0{
-                    if current_pol > 0{
-                        start_x = 230.+ (current_pol-1) as f32*80.;
-                    }
-                    else {
-                        start_x = -110. + (current_pol+1) as f32*80.;
-                    }
-                }
-                if pol.polarity != 0{
-                    if pol.polarity > 0{
-                        end_x = 230. + (pol.polarity-1) as f32*80.;
-                    }
-                    else {
-                        end_x = -110. + (pol.polarity+1) as f32*80.;
-                    }
-                }
-                if pol.dimension{
-                    start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                else {
-                    start_vector = Vec3::new(start_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                let tween = Tween::new(
-                    EaseFunction::BackInOut,
-                    Duration::from_secs(1),
-                    TransformPositionLens {
-                        start: start_vector,
-                        end: end_vector
-                    },
-                );
-                commands.entity(entity_id).insert(Animator::new(tween));
-                unsafe{ WORLD_PHASE = 4};
-            }
-            else if input.just_released(KeyCode::Key2) && pol.world == 1 {
-                let current_pol = pol.polarity;
-                pol.polarity -= value_incoming;
-                if pol.polarity > 6{
-                    pol.polarity = 6;
-                }
-                else if pol.polarity < -6{
-                    pol.polarity = -6;
-                }
-                let start_vector: Vec3;
-                let end_vector: Vec3;
-                let mut start_x = 0.;
-                let mut end_x = start_x;
-                if current_pol != 0{
-                    if current_pol > 0{
-                        start_x = 230.+ (current_pol-1) as f32*80.;
-                    }
-                    else {
-                        start_x = -110. + (current_pol+1) as f32*80.;
-                    }
-                }
-                if pol.polarity != 0{
-                    if pol.polarity > 0{
-                        end_x = 230. + (pol.polarity-1) as f32*80.;
-                    }
-                    else {
-                        end_x = -110. + (pol.polarity+1) as f32*80.;
-                    }
-                }
-                if pol.dimension{
-                    start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                else {
-                    start_vector = Vec3::new(start_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                let tween = Tween::new(
-                    EaseFunction::BackInOut,
-                    Duration::from_secs(1),
-                    TransformPositionLens {
-                        start: start_vector,
-                        end: end_vector
-                    },
-                );
-                commands.entity(entity_id).insert(Animator::new(tween));
-                unsafe{ WORLD_PHASE = 4};
-            }
-            else if input.just_released(KeyCode::Key3) && pol.world == 2 {
-                let current_pol = pol.polarity;
-                pol.polarity -= value_incoming;
-                if pol.polarity > 6{
-                    pol.polarity = 6;
-                }
-                else if pol.polarity < -6{
-                    pol.polarity = -6;
-                }
-                let start_vector: Vec3;
-                let end_vector: Vec3;
-                let mut start_x = 0.;
-                let mut end_x = start_x;
-                if current_pol != 0{
-                    if current_pol > 0{
-                        start_x = 230.+ (current_pol-1) as f32*80.;
-                    }
-                    else {
-                        start_x = -110. + (current_pol+1) as f32*80.;
-                    }
-                }
-                if pol.polarity != 0{
-                    if pol.polarity > 0{
-                        end_x = 230. + (pol.polarity-1) as f32*80.;
-                    }
-                    else {
-                        end_x = -110. + (pol.polarity+1) as f32*80.;
-                    }
-                }
-                if pol.dimension{
-                    start_vector = Vec3::new(start_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                else {
-                    start_vector = Vec3::new(start_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                    end_vector = Vec3::new(end_x, 260.0-(pol.world as f32 * 120.0), 0.);
-                }
-                let tween = Tween::new(
-                    EaseFunction::BackInOut,
-                    Duration::from_secs(1),
-                    TransformPositionLens {
-                        start: start_vector,
-                        end: end_vector
-                    },
-                );
-                commands.entity(entity_id).insert(Animator::new(tween));
-                unsafe{ WORLD_PHASE = 4};
-            }
-            else if input.just_released(KeyCode::Key4) && pol.world == 3 {
                 let current_pol = pol.polarity;
                 pol.polarity -= value_incoming;
                 if pol.polarity > 6{
@@ -655,22 +525,17 @@ fn select_card(
                     end: Vec3::new(-400.+80.*card_num as f32, -220., 0.),
                 },
             );
-            if input.just_released(KeyCode::Key1) && card_num == 0 && !card.active{
-                commands.entity(entity_id).insert(Animator::new(tween));
-                card.active = true;
-                unsafe { WORLD_PHASE = 1 };
-            }
-            else if input.just_released(KeyCode::Key3) && card_num == 2 && !card.active{
-                commands.entity(entity_id).insert(Animator::new(tween));
-                card.active = true;
-                unsafe { WORLD_PHASE = 1 };
-            }
-            else if input.just_released(KeyCode::Key4) && card_num == 3 && !card.active{
-                commands.entity(entity_id).insert(Animator::new(tween));
-                card.active = true;
-                unsafe { WORLD_PHASE = 1 };
-            }
-            else if input.just_released(KeyCode::Key2) && card_num == 1 && !card.active{
+            if input.just_released(KeyCode::Key1)
+            || input.just_released(KeyCode::Key2)
+            || input.just_released(KeyCode::Key3)
+            || input.just_released(KeyCode::Key4) {
+                if input.just_released(KeyCode::Key1) && card_num != 0
+                || input.just_released(KeyCode::Key2) && card_num != 1
+                || input.just_released(KeyCode::Key3) && card_num != 2
+                || input.just_released(KeyCode::Key4) && card_num != 3
+                {
+                    continue;
+                }
                 commands.entity(entity_id).insert(Animator::new(tween));
                 card.active = true;
                 unsafe { WORLD_PHASE = 1 };
