@@ -28,7 +28,7 @@ fn main() {
         .add_systems(Update, push_world_polarity)
         .add_systems(Update, banish_and_replace)
         .add_systems(Update, claim_balanced_worlds)
-        .add_event::<CardPlacedEvent>()
+        .add_systems(Update, swap_pleroma_kenoma)
         .run();
 }
 
@@ -58,6 +58,14 @@ struct SwapSpace{}
 struct FifthMarker{}
 
 #[derive(Component)]
+struct Pleromic{
+    pleroma: bool,
+}
+
+#[derive(Component)]
+struct Active{}
+
+#[derive(Component)]
 struct Deck{
     capacity: u16
 }
@@ -68,19 +76,22 @@ struct BalancedWorlds{
 }
 
 #[derive(Component)]
+struct WorldManager{
+    kenoma: bool,
+}
+
+#[derive(Component)]
 struct Dimension{
     name: String,
     world: u8,
     pleroma: bool,
 }
 
-#[derive(Event)]
-struct CardPlacedEvent(Card); 
-
 static mut WORLD_PHASE: i8 = 0;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>) {
     // Rectangle
+    commands.spawn(WorldManager{kenoma: true});
     commands.spawn(SpriteBundle {
         sprite: Sprite {
             color: Color::rgb(1.0, 1.0, 1.0),
@@ -292,6 +303,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
 }
 
 fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>){
+    let card_values = [rand::thread_rng().gen_range(1..7),rand::thread_rng().gen_range(1..7),rand::thread_rng().gen_range(1..7),rand::thread_rng().gen_range(1..7)];
     let img_path = "spritesheet.png".to_owned();
     let texture_handle = asset_server.load(&img_path);
     let texture_atlas = TextureAtlas::from_grid(
@@ -302,14 +314,13 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     for i in 0..4_u8{
         let img_path = "spritesheet.png".to_owned();
-        let card_value = rand::thread_rng().gen_range(1..7);
+        let card_value = card_values[i as usize];
         let texture_handle = asset_server.load(&img_path);
         let texture_atlas = TextureAtlas::from_grid(
             texture_handle,
             Vec2::new(16.0, 16.0),
             80, 2, None, None
         );
-        let card_value = card_value;
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
@@ -337,7 +348,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         };
         let text_alignment = TextAlignment::Center;
         let bindings = ["1","2","3","4"];
-        commands.spawn(
+        commands.spawn( // card hotkeys
             (
                 Text2dBundle {
                     text: Text::from_section(bindings[i as usize], text_style.clone())
@@ -347,10 +358,12 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
                 Animator::new(tween_text),
                 TextLabel{
                     number: i,
-                }
+                },
+                Pleromic{ pleroma: false},
+                Active{}
             )
         );
-        commands.spawn((SpriteSheetBundle {
+        commands.spawn((SpriteSheetBundle { // cards
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
                 index : (card_value-1) as usize,
@@ -365,8 +378,90 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             active: false,
         },
         Animator::new(tween),
+        Pleromic{ pleroma: false},
+        Active{}
         ));
     }
+
+    // WHITE
+    // 
+    // 
+    
+    for i in 0..4_u8{
+        let img_path = "spritesheet.png".to_owned();
+        let texture_handle = asset_server.load(&img_path);
+        let texture_atlas = TextureAtlas::from_grid(
+            texture_handle,
+            Vec2::new(16.0, 16.0),
+            80, 2, None, None
+        );
+        let card_value = card_values[i as usize];
+        let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_secs(1),
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*i as f32, y: -1500.-400., z: 0. },
+                end: Vec3::new(-400.+80.*i as f32, -1500.-250., 0.),
+            },
+        );
+        let tween_text = Tween::new(
+            // Use a quadratic easing on both endpoints.
+            EaseFunction::QuadraticInOut,
+            // Animation time.
+            Duration::from_secs(1),
+            TransformPositionLens {
+                start: Vec3 { x: -400.+80.*i as f32, y: -1500.-400., z: 0. },
+                end: Vec3::new(-400.+80.*i as f32, -1500.-300., 0.),
+            },
+        );
+        let font = asset_server.load("Play-Regular.ttf");
+        let text_style = TextStyle {
+            font: font.clone(),
+            font_size: 30.0,
+            color: Color::BLACK,
+        };
+        let text_alignment = TextAlignment::Center;
+        let bindings = ["1","2","3","4"];
+        commands.spawn( // card hotkeys
+            (
+                Text2dBundle {
+                    text: Text::from_section(bindings[i as usize], text_style.clone())
+                    .with_alignment(text_alignment),
+                ..default()
+                },
+                Animator::new(tween_text),
+                TextLabel{
+                    number: i,
+                },
+                Pleromic{ pleroma: true},
+            )
+        );
+        commands.spawn((SpriteSheetBundle { // cards
+            texture_atlas: texture_atlas_handle.clone(),
+            sprite: TextureAtlasSprite{
+                index : (card_value-1) as usize,
+                custom_size: Some(Vec2::new(64.0, 64.0)),
+                color: Color::rgb(0.0, 0.0, 0.0),
+                ..default()
+            },
+            ..default()
+        },
+        Card{
+            value: card_value,
+            position: i,
+            active: false,
+        },
+        Animator::new(tween),
+        Pleromic{ pleroma: true},
+        ));
+    }
+
+    // END
+    // 
+    // 
+
+
     let tween_deck = Tween::new(
         // Use a quadratic easing on both endpoints.
         EaseFunction::QuadraticInOut,
@@ -414,7 +509,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         color: Color::WHITE,
     };
     let text_alignment = TextAlignment::Center;
-    commands.spawn(
+    commands.spawn( // deck counter
         (
             Text2dBundle {
                 text: Text::from_section("64", text_style.clone())
@@ -424,10 +519,12 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             Animator::new(tween_deck),
             Deck{
                 capacity: 64,
-            }
+            },
+            Pleromic{ pleroma: false},
+            Active{},
         )
     );
-    commands.spawn(
+    commands.spawn( // world counter
         (
             Text2dBundle {
                 text: Text::from_section("0", text_style.clone())
@@ -437,10 +534,12 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             Animator::new(tween_num_bal),
             BalancedWorlds{
                 capacity: 0,
-            }
+            },
+            Pleromic{ pleroma: false},
+            Active{},
         )
     );
-    commands.spawn((SpriteSheetBundle {
+    commands.spawn((SpriteSheetBundle { // deck icon
         texture_atlas: texture_atlas_handle.clone(),
         sprite: TextureAtlasSprite{
             index : 10_usize,
@@ -450,8 +549,10 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         ..default()
     },
     Animator::new(tween),
+    Pleromic{ pleroma: false},
+    Active{},
     ));
-    commands.spawn((SpriteSheetBundle {
+    commands.spawn((SpriteSheetBundle { // world icon
         texture_atlas: texture_atlas_handle.clone(),
         sprite: TextureAtlasSprite{
             index : 8_usize,
@@ -464,6 +565,8 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         },
         ..default()
     },
+    Pleromic{ pleroma: false},
+    Active{},
     Animator::new(tween_bal),
     ));
     commands.spawn((SpriteSheetBundle {
@@ -509,13 +612,16 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             ..default()
             },
             FifthMarker{},
+            Pleromic{ pleroma: false},
+            Active{},
         )
     );
 
 }
 
 fn move_text_labels(
-    mut query: Query<(Entity, &mut TextLabel)>,
+    query_world: Query<&WorldManager>,
+    mut query: Query<(Entity, &mut TextLabel, &Pleromic, &Transform)>,
     query_swap: Query<(Entity, &Transform), With<SwapSpace>>,
     query_swap_text: Query<Entity, With<FifthMarker>>,
     mut commands: Commands,
@@ -526,14 +632,20 @@ fn move_text_labels(
         return;
     }
     if (unsafe { WORLD_PHASE } == 1){
-        for (entity_id, text) in query.iter_mut() {
+        let mut pleroma = true;
+        for world in query_world.iter(){
+            if world.kenoma { pleroma = false};
+        }
+        for (entity_id, text, plero, trans) in query.iter_mut() {
             let text_num = text.number;
+            let bump_y = if plero.pleroma { -1500.} else {0.};
+            let bump_x = if plero.pleroma && pleroma { 160.} else {-40.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_secs(1),
                 TransformPositionLens {
-                    start: Vec3::new(-400.+80.*text_num as f32, -300., 0.),
-                    end: Vec3::new(-40., 220.-120.*text_num as f32, 0.),
+                    start: trans.translation,
+                    end: Vec3::new(bump_x, bump_y+220.-120.*text_num as f32, 0.),
                 },
             ).with_completed(|_entity, _tween|{world_phase_update(3)});
             commands.entity(entity_id).insert(Animator::new(tween));
@@ -576,14 +688,20 @@ fn move_text_labels(
         }
     }
     else if (unsafe { WORLD_PHASE } == 5){
-        for (entity_id, text) in query.iter_mut() {
+        let mut pleroma = true;
+        for world in query_world.iter(){
+            if world.kenoma { pleroma = false};
+        }
+        for (entity_id, text,plero, trans) in query.iter_mut() {
             let text_num = text.number;
+            let bump_y = if plero.pleroma { -1500.} else {0.};
+            let bump_x = if plero.pleroma && pleroma { 675.} else {0.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_secs(1),
                 TransformPositionLens {
-                    end: Vec3::new(-400.+80.*text_num as f32, -300., 0.),
-                    start: Vec3::new(-40., 220.-120.*text_num as f32, 0.),
+                    end: Vec3::new(bump_x+-400.+80.*text_num as f32, bump_y+-300., 0.),
+                    start: trans.translation,
                 },
             ).with_completed(|_entity, _tween|{world_phase_update(0)});
             commands.entity(entity_id).insert(Animator::new(tween));
@@ -632,6 +750,41 @@ fn world_phase_update(new_phase: i8){
     unsafe {
         WORLD_PHASE = new_phase;
     }
+}
+
+fn swap_pleroma_kenoma(
+    query_world: Query<&WorldManager>,
+    mut query_pleroma: Query<(Entity, &Transform)>,
+    mut commands: Commands,
+){
+    if unsafe {
+        WORLD_PHASE != 8
+    }{
+        return;
+    }
+    let mut current_dim = true;
+    for world in query_world.iter(){
+        if world.kenoma {current_dim = false};
+    }
+    if !current_dim{
+        for (entity_id, trans) in query_pleroma.iter_mut() {
+            let start_vec = trans.translation;
+            let end_vec = Vec3::new(start_vec.x+675., start_vec.y, start_vec.z);
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(300),
+                TransformPositionLens {
+                    start: start_vec,
+                    end: end_vec,
+                },
+            ).with_completed(|_entity, _tween|{world_phase_update(4)});
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
+    }
+    else {
+
+    }
+    world_phase_update(-3);
 }
 
 fn claim_balanced_worlds(
@@ -721,11 +874,11 @@ fn claim_balanced_worlds(
             sprite: TextureAtlasSprite{
                 index : 8, // replace this with the world texture
                 custom_size: Some(Vec2::new(64.0, 64.0)),
-                color: color,
+                color,
                 ..default()
             },
             transform: Transform {
-                translation: start_vec.clone(),
+                translation: start_vec,
                 rotation: Quat::from_rotation_z(PI/4.0),
                 ..default()
             },
@@ -742,7 +895,9 @@ fn claim_balanced_worlds(
     let mut cap = 0;
     for mut deck in query_w_deck.iter_mut(){
         deck.capacity += balanced_worlds.len() as u16;
-        deck.capacity -= 1;
+        if !balanced_worlds.is_empty(){
+            deck.capacity -= 1;
+        }
         cap = deck.capacity;
     }
     for mut text in query_text_deck.iter_mut(){
@@ -752,8 +907,9 @@ fn claim_balanced_worlds(
 }
 
 fn banish_and_replace(
-    mut query: Query<(Entity, &mut Card)>,
+    mut query: Query<(Entity, &mut Card, &Pleromic, &Transform)>,
     mut query_text_deck: Query<&mut Text, With<Deck>>,
+    query_world: Query<&WorldManager>,
     mut query_deck: Query<&mut Deck>,
     mut commands: Commands,
     asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>
@@ -763,22 +919,28 @@ fn banish_and_replace(
     }{
         return;
     }
-    for (entity_id, card) in query.iter_mut() {
+    let mut pleroma = true;
+    let mut scan_count = 8;
+    for world in query_world.iter(){
+        if world.kenoma {pleroma = false};
+    }
+    let card_value = rand::thread_rng().gen_range(1..7);
+    for (entity_id, card, plero, trans) in query.iter_mut() {
+        dbg!(card.active);
+        scan_count-=1;
         if !card.active{
             continue;
         }
-        let card_num = card.position;
         let tween = Tween::new(
             EaseFunction::QuadraticIn,
             Duration::from_millis(300),
             TransformPositionLens {
-                start: Vec3 { x: -400.+80.*card_num as f32, y: -220., z: 0. },
-                end: Vec3::new(-400.+80.*card_num as f32, -400., 0.),
+                start: trans.translation,
+                end: Vec3::new(trans.translation.x, trans.translation.y-230., 0.),
             },
         );
         commands.entity(entity_id).insert(Animator::new(tween));
         commands.entity(entity_id).remove::<Card>();
-        let card_value = rand::thread_rng().gen_range(1..7);
         let img_path = "spritesheet.png".to_owned();
         let texture_handle = asset_server.load(&img_path);
         let texture_atlas = TextureAtlas::from_grid(
@@ -787,12 +949,30 @@ fn banish_and_replace(
             80, 2, None, None
         );
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        let start_vec = if plero.pleroma && pleroma{
+            Vec3::new(275.+80.*card.position as f32, -1500.-400.,0. )
+        } else if pleroma && !plero.pleroma{
+            Vec3::new(275.+80.*card.position as f32, -400.,0. )
+        } else if !pleroma && plero.pleroma {
+            Vec3::new(-400.+80.*card.position as f32, -1500.-400.,0. )
+        } else {
+            Vec3::new(-400.+80.*card.position as f32, -400.,0. )
+        };
+        let end_vec = if plero.pleroma && pleroma{
+            Vec3::new(275.+80.*card.position as f32, -1500.-250.,0. )
+        } else if pleroma && !plero.pleroma{
+            Vec3::new(275.+80.*card.position as f32, -250.,0. )
+        } else if !pleroma && plero.pleroma {
+            Vec3::new(-400.+80.*card.position as f32, -1500.-250.,0. )
+        } else {
+            Vec3::new(-400.+80.*card.position as f32, -250.,0. )
+        };
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             Duration::from_secs(1),
             TransformPositionLens {
-                start: Vec3 { x: -400.+80.*card.position as f32, y: -400., z: 0. },
-                end: Vec3::new(-400.+80.*card.position as f32, -250., 0.),
+                start: start_vec,
+                end: end_vec,
             },
         );
         commands.spawn((SpriteSheetBundle {
@@ -810,9 +990,11 @@ fn banish_and_replace(
             position: card.position,
             active: false,
         },
+        Pleromic{
+            pleroma: plero.pleroma
+        },
         Animator::new(tween),
-    ));
-        world_phase_update(5);
+        )); 
     }
     let mut cap = 64;
     for mut deck in query_deck.iter_mut(){
@@ -822,6 +1004,9 @@ fn banish_and_replace(
     for mut text in query_text_deck.iter_mut(){
         text.sections[0].value = cap.to_string();
     }
+    if scan_count == 0{
+        world_phase_update(5);
+    } 
 }
 
 fn push_world_polarity(
@@ -903,21 +1088,22 @@ fn push_world_polarity(
 }
 
 fn select_card(
-    mut query: Query<(Entity, &mut Card)>,
+    mut query: Query<(Entity, &mut Card, &Transform)>,
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
 ) {
+    //dbg!(unsafe {WORLD_PHASE });
     if unsafe { WORLD_PHASE } == 0{
-        for (entity_id, mut card) in query.iter_mut() {
+        for (entity_id, mut card, trans) in query.iter_mut() {
             let card_num = card.position;
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_millis(300),
                 TransformPositionLens {
-                    start: Vec3 { x: -400.+80.*card_num as f32, y: -250., z: 0. },
-                    end: Vec3::new(-400.+80.*card_num as f32, -220., 0.),
+                    start: trans.translation,
+                    end: Vec3::new(trans.translation.x, trans.translation.y+30., 0.),
                 },
-            );
+            ).with_completed(|_entity, _tween|{world_phase_update(1)});
             if input.just_released(KeyCode::Key1)
             || input.just_released(KeyCode::Key2)
             || input.just_released(KeyCode::Key3)
@@ -931,8 +1117,14 @@ fn select_card(
                 }
                 commands.entity(entity_id).insert(Animator::new(tween));
                 card.active = true;
-                unsafe { WORLD_PHASE = 1 };
+                dbg!(card.active);
             }
+        }
+        if input.just_released(KeyCode::Key1)
+        || input.just_released(KeyCode::Key2)
+        || input.just_released(KeyCode::Key3)
+        || input.just_released(KeyCode::Key4) {
+        unsafe { WORLD_PHASE = -4 };
         }
     }
 }
