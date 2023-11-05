@@ -860,7 +860,7 @@ fn world_phase_update(new_phase: i8){
 }
 
 fn swap_pleroma_kenoma(
-    query_world: Query<&WorldManager>,
+    mut query_world: Query<&mut WorldManager>,
     mut query_pleroma: Query<(Entity, &Transform), With<Pleromic>>,
     mut commands: Commands,
 ){
@@ -870,8 +870,9 @@ fn swap_pleroma_kenoma(
         return;
     }
     let mut current_dim = true;
-    for world in query_world.iter(){
+    for mut world in query_world.iter_mut(){
         if world.kenoma {current_dim = false};
+        world.kenoma = !world.kenoma;
     }
     if !current_dim{
         for (entity_id, trans) in query_pleroma.iter_mut() {
@@ -1056,6 +1057,8 @@ fn banish_and_replace(
             80, 2, None, None
         );
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        dbg!(pleroma);
+        dbg!(plero.pleroma);
         let start_vec = if plero.pleroma && pleroma{
             Vec3::new(275.+80.*card.position as f32, -1500.-400.,0. )
         } else if pleroma && !plero.pleroma{
@@ -1074,6 +1077,11 @@ fn banish_and_replace(
         } else {
             Vec3::new(-400.+80.*card.position as f32, -250.,0. )
         };
+        let color = if plero.pleroma{
+            Color::rgb(0.0, 0.0, 0.0)
+        } else {
+            Color::rgb(1.0, 1.0, 1.0)
+        };
         let tween = Tween::new(
             EaseFunction::QuadraticInOut,
             Duration::from_secs(1),
@@ -1087,6 +1095,7 @@ fn banish_and_replace(
             sprite: TextureAtlasSprite{
                 index : (card_value-1) as usize,
                 custom_size: Some(Vec2::new(64.0, 64.0)),
+                color,
                 ..default()
             },
             transform: Transform { translation: Vec3 { x: -400.+80.*card.position as f32, y: -400., z: 0. }, ..Default::default()},
