@@ -83,7 +83,6 @@ struct WorldManager{
 
 #[derive(Component)]
 struct Dimension{
-    name: String,
     world: u8,
     pleroma: bool,
 }
@@ -193,7 +192,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
             ..default()
         },
         Dimension{
-            name: "Goemorphos".to_owned(),
             world: i,
             pleroma: false
         }
@@ -235,7 +233,6 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
             ..default()
         },
         Dimension{
-            name: "Goemorphos".to_owned(),
             world: i,
             pleroma: true,
         }
@@ -348,6 +345,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
                     sprite: TextureAtlasSprite{
                         index : i as usize,
                         custom_size: Some(Vec2::new(16.0, 16.0)),
+                        color: Color::rgb(0.6, 0.6, 0.6),
                         ..default()
                     },
                     ..default()
@@ -502,59 +500,6 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             Active{},
         )
     );
-    let text_style = TextStyle {
-        font: font.clone(),
-        font_size: 30.0,
-        color: Color::BLACK,
-    };
-    let tween_deck = Tween::new(
-        // Use a quadratic easing on both endpoints.
-        EaseFunction::QuadraticInOut,
-        // Animation time.
-        Duration::from_secs(1),
-        TransformPositionLens {
-            start: Vec3 { x: -480., y: -1500.-400., z: 0. },
-            end: Vec3::new(-480., -1500.-218., 0.),
-        },
-    );
-    let tween_num_bal = Tween::new(
-        // Use a quadratic easing on both endpoints.
-        EaseFunction::QuadraticInOut,
-        // Animation time.
-        Duration::from_secs(1),
-        TransformPositionLens {
-            start: Vec3 { x: -480., y: -1500.-400., z: 0. },
-            end: Vec3::new(-480., -1500.-278., 0.),
-        },
-    );
-    commands.spawn( // deck counter
-        (
-            Text2dBundle {
-                text: Text::from_section("21", text_style.clone())
-                .with_alignment(text_alignment),
-            ..default()
-            },
-            Animator::new(tween_deck),
-            Deck{
-                capacity: 21,
-            },
-            Pleromic{ pleroma: true, dist: 1110.},
-        )
-    );
-    commands.spawn( // world counter
-        (
-            Text2dBundle {
-                text: Text::from_section("0", text_style.clone())
-                .with_alignment(text_alignment),
-            ..default()
-            },
-            Animator::new(tween_num_bal),
-            BalancedWorlds{
-                capacity: 0,
-            },
-            Pleromic{ pleroma: true, dist: 1110.},
-        )
-    );
 
     commands.spawn((SpriteSheetBundle { // deck icon
         texture_atlas: texture_atlas_handle.clone(),
@@ -689,7 +634,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
 
 fn move_text_labels(
     query_world: Query<&WorldManager>,
-    mut query: Query<(Entity, &mut TextLabel, &Pleromic, &Transform)>,
+    mut query: Query<(Entity, &mut TextLabel, &Transform)>,
     query_swap: Query<(Entity, &Transform), With<SwapSpace>>,
     query_swap_text: Query<(Entity, &Transform), With<FifthMarker>>,
     mut commands: Commands,
@@ -704,20 +649,19 @@ fn move_text_labels(
         for world in query_world.iter(){
             if world.kenoma { pleroma = false};
         }
-        for (entity_id, text, plero, trans) in query.iter_mut() {
+        for (entity_id, text, trans) in query.iter_mut() {
             let text_num = text.number;
-            let bump_y = if plero.pleroma { -1500.} else {220.};
-            let bump_x = if plero.pleroma { 160.} else {-40.};
+            let bump_y = if pleroma { -1270.} else {220.};
+            let bump_x = if pleroma { 160.} else {-40.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_secs(1),
                 TransformPositionLens {
                     start: trans.translation,
                     end: Vec3::new(bump_x, bump_y-120.*text_num as f32, 0.),
+
                 },
             ).with_completed(|_entity, _tween|{world_phase_update(3)});
-            dbg!(trans.translation);
-            dbg!(Vec3::new(bump_x, bump_y-120.*text_num as f32, 0.));
             commands.entity(entity_id).insert(Animator::new(tween));
             world_phase_update(2);
     
@@ -750,9 +694,9 @@ fn move_text_labels(
         for world in query_world.iter(){
             if world.kenoma { pleroma = false};
         }
-        for (entity_id, text,plero, trans) in query.iter_mut() {
+        for (entity_id, text, trans) in query.iter_mut() {
             let text_num = text.number;
-            let bump_y = if plero.pleroma { -1500.} else {0.};
+            let bump_y = if pleroma { -1500.} else {0.};
             let bump_x = if pleroma { 675.} else {0.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
@@ -906,11 +850,13 @@ fn claim_balanced_worlds(
         );
         commands.entity(entity_id).insert(Animator::new(tween));
         commands.entity(entity_id).remove::<Dimension>();
+        /*
         let possible_worlds = ["Goemorphos"];
         let new_world_name: Vec<_> = possible_worlds
         .choose_multiple(&mut rand::thread_rng(), 1)
         .collect();
         let new_world_name = *new_world_name[0];
+        */
         let img_path = "spritesheet.png".to_owned();
         let texture_handle = asset_server.load(&img_path);
         let texture_atlas = TextureAtlas::from_grid(
@@ -958,7 +904,6 @@ fn claim_balanced_worlds(
             ..default()
         },
         Dimension{
-            name: new_world_name.to_owned(),
             world: world_num,
             pleroma: world.pleroma,
         },
