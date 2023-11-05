@@ -135,6 +135,18 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
         });
     }
     for i in 0..4{ // white
+        let options = [-4,-3,-2,2,3,4];
+        let starting_offset: Vec<_> = options
+        .choose_multiple(&mut rand::thread_rng(), 1)
+        .collect();
+        let starting_offset = *starting_offset[0];
+        let end_x : f32;
+        if starting_offset > 0{
+            end_x = 190. + (starting_offset-2) as f32*80.;
+        }
+        else {
+            end_x = -110. + (starting_offset+1) as f32*80.;
+        }
         commands.spawn(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -159,21 +171,19 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 0.0, y: 260.0-(i as f32 * 120.0), z: 0.0},
+                translation: Vec3::new(end_x, 260.0-(i as f32 * 120.0), 0.),
                 rotation: Quat::from_rotation_z(PI/4.0),
                 ..default()
             },
             ..default()
         },
         PolarityMarker{
-            polarity: 0,
+            polarity: starting_offset,
             world: i,
             dimension: false,
         }
     ));
-    }
-    for i in 0..4{ // black
-        commands.spawn(SpriteSheetBundle {
+            commands.spawn(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 8,
@@ -197,14 +207,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
                 ..default()
             },
             transform: Transform {
-                translation: Vec3{ x: 120.0, y: -1500.+260.0-(i as f32 * 120.0), z: 0.0},
+                translation: Vec3::new(end_x+120., -1500.+260.0-(i as f32 * 120.0), 0.),
                 rotation: Quat::from_rotation_z(PI/4.0),
                 ..default()
             },
             ..default()
         },
         PolarityMarker{
-            polarity: 0,
+            polarity: starting_offset,
             world: i,
             dimension: true,
         }
@@ -472,7 +482,7 @@ fn push_world_polarity(
                 let mut end_x = start_x;
                 if current_pol != 0{
                     if current_pol > 0{
-                        start_x = 230.+ (current_pol-1) as f32*80.;
+                        start_x = 190.+ (current_pol-2) as f32*80.;
                     }
                     else {
                         start_x = -110. + (current_pol+1) as f32*80.;
@@ -480,7 +490,7 @@ fn push_world_polarity(
                 }
                 if pol.polarity != 0{
                     if pol.polarity > 0{
-                        end_x = 230. + (pol.polarity-1) as f32*80.;
+                        end_x = 190. + (pol.polarity-2) as f32*80.;
                     }
                     else {
                         end_x = -110. + (pol.polarity+1) as f32*80.;
