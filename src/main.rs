@@ -27,6 +27,7 @@ fn main() {
         .add_systems(Update, move_text_labels)
         .add_systems(Update, push_world_polarity)
         .add_systems(Update, banish_and_replace)
+        .add_systems(Update, claim_balanced_worlds)
         .add_event::<CardPlacedEvent>()
         .run();
 }
@@ -59,6 +60,18 @@ struct FifthMarker{}
 #[derive(Component)]
 struct Deck{
     capacity: u16
+}
+
+#[derive(Component)]
+struct BalancedWorlds{
+    capacity: u16
+}
+
+#[derive(Component)]
+struct Dimension{
+    name: String,
+    world: u8,
+    pleroma: bool,
 }
 
 #[derive(Event)]
@@ -152,7 +165,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
         else {
             -110. + (starting_offset+1) as f32*80.
         };
-        commands.spawn(SpriteSheetBundle {
+        commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 8,
@@ -166,7 +179,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
                 ..default()
             },
             ..default()
-        });
+        },
+        Dimension{
+            name: "Goemorphos".to_owned(),
+            world: i,
+            pleroma: false,
+        }
+        ));
         commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -188,7 +207,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
             dimension: false,
         }
     ));
-            commands.spawn(SpriteSheetBundle {
+            commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
                 index : 8,
@@ -202,7 +221,13 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
                 ..default()
             },
             ..default()
-        });
+        },
+        Dimension{
+            name: "Goemorphos".to_owned(),
+            world: i,
+            pleroma: true,
+        }
+        ));
         commands.spawn((SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -271,7 +296,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
     let texture_handle = asset_server.load(&img_path);
     let texture_atlas = TextureAtlas::from_grid(
         texture_handle,
-        Vec2::new(16.0, 16.0),
+        Vec2::new(15.9, 15.9),
         80, 2, None, None
     );
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
@@ -352,6 +377,26 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             end: Vec3::new(-480., -218., 0.),
         },
     );
+    let tween_num_bal = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time.
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3 { x: -480., y: -400., z: 0. },
+            end: Vec3::new(-480., -278., 0.),
+        },
+    );
+    let tween_bal = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time.
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3 { x: -520., y: -400., z: 0. },
+            end: Vec3::new(-520., -280., 0.),
+        },
+    );
     let tween = Tween::new(
         // Use a quadratic easing on both endpoints.
         EaseFunction::QuadraticInOut,
@@ -382,6 +427,19 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             }
         )
     );
+    commands.spawn(
+        (
+            Text2dBundle {
+                text: Text::from_section("0", text_style.clone())
+                .with_alignment(text_alignment),
+            ..default()
+            },
+            Animator::new(tween_num_bal),
+            BalancedWorlds{
+                capacity: 0,
+            }
+        )
+    );
     commands.spawn((SpriteSheetBundle {
         texture_atlas: texture_atlas_handle.clone(),
         sprite: TextureAtlasSprite{
@@ -392,6 +450,21 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         ..default()
     },
     Animator::new(tween),
+    ));
+    commands.spawn((SpriteSheetBundle {
+        texture_atlas: texture_atlas_handle.clone(),
+        sprite: TextureAtlasSprite{
+            index : 8_usize,
+            custom_size: Some(Vec2::new(32.0, 32.0)),
+            ..default()
+        },
+        transform: Transform {
+            rotation: Quat::from_rotation_z(PI/4.0),
+            ..default()
+        },
+        ..default()
+    },
+    Animator::new(tween_bal),
     ));
     commands.spawn((SpriteSheetBundle {
         texture_atlas: texture_atlas_handle.clone(),
@@ -516,6 +589,40 @@ fn move_text_labels(
             commands.entity(entity_id).insert(Animator::new(tween));
             world_phase_update(6);
         }
+        for (entity_id, transform) in query_swap.iter(){
+            let end_vec = if transform.translation.y < -1500.{
+                Vec3::new(120., -2000., 0.)
+            }
+            else{
+                Vec3::new(0., -500., 0.)
+            };
+            let start_vec = if transform.translation.y < -1500.{
+                Vec3::new(120., -1710., 0.)
+            }
+            else{
+                Vec3::new(0., -210., 0.)
+            };
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    start: start_vec,
+                    end: end_vec,
+                },
+            );
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
+        for entity_id in query_swap_text.iter(){
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    end: Vec3::new(-40., -500., 0.),
+                    start: Vec3::new(-40., -250., 0.),
+                },
+            );
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
     }
 
 
@@ -525,6 +632,123 @@ fn world_phase_update(new_phase: i8){
     unsafe {
         WORLD_PHASE = new_phase;
     }
+}
+
+fn claim_balanced_worlds(
+    query: Query<&PolarityMarker>,
+    mut query_worlds: Query<(Entity, &mut Dimension)>,
+    mut query_w_deck: Query<&mut BalancedWorlds>,
+    mut query_text_deck: Query<&mut Text, With<BalancedWorlds>>,
+    mut commands: Commands,
+    asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>
+)
+{
+    if unsafe {
+        WORLD_PHASE != 7
+    }{
+        return;
+    }
+    let mut balanced_worlds: Vec<u8> = Vec::new();
+    for pol in query.iter(){
+        if pol.polarity == 0{
+            balanced_worlds.push(pol.world);
+        }
+    }
+    assert!(balanced_worlds.len() < 5);
+    for (entity_id, world) in query_worlds.iter_mut() {
+        let world_num = world.world;
+        if !balanced_worlds.contains(&world_num){
+            continue;
+        }
+        let start_vec = if world.pleroma{
+            Vec3{ x: 120.0, y: -1500.+260.0-(world_num as f32 * 120.0), z: 0.0}
+        } else {
+            Vec3{ x: 0.0, y: 260.0-(world_num as f32 * 120.0), z: 0.0}
+        };
+        let end_vec = if world.pleroma{
+            Vec3{ x: 120.0, y: -1000.+260.0-(world_num as f32 * 120.0), z: 0.0}
+        } else {
+            Vec3{ x: 0.0, y: 760.0-(world_num as f32 * 120.0), z: 0.0}
+        };
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(300),
+            TransformPositionLens {
+                start: start_vec,
+                end: end_vec,
+            },
+        );
+        commands.entity(entity_id).insert(Animator::new(tween));
+        commands.entity(entity_id).remove::<Dimension>();
+        let possible_worlds = ["Goemorphos"];
+        let new_world_name: Vec<_> = possible_worlds
+        .choose_multiple(&mut rand::thread_rng(), 1)
+        .collect();
+        let new_world_name = *new_world_name[0];
+        let img_path = "spritesheet.png".to_owned();
+        let texture_handle = asset_server.load(&img_path);
+        let texture_atlas = TextureAtlas::from_grid(
+            texture_handle,
+            Vec2::new(16.0, 16.0),
+            80, 2, None, None
+        );
+        let texture_atlas_handle = texture_atlases.add(texture_atlas);
+        let end_vec = if world.pleroma{
+            Vec3{ x: 120.0, y: -1500.+260.0-(world_num as f32 * 120.0), z: 0.0}
+        } else {
+            Vec3{ x: 0.0, y: 260.0-(world_num as f32 * 120.0), z: 0.0}
+        };
+        let start_vec = if world.pleroma{
+            Vec3{ x: 120.0, y: -1000.+260.0-(world_num as f32 * 120.0), z: 0.0}
+        } else {
+            Vec3{ x: 0.0, y: 760.0-(world_num as f32 * 120.0), z: 0.0}
+        };
+        let color = if world.pleroma{
+            Color::rgb(0.0, 0.0, 0.0)
+        } else {
+            Color::rgb(1.0, 1.0, 1.0)
+        };
+        let tween = Tween::new(
+            EaseFunction::QuadraticInOut,
+            Duration::from_millis(1300),
+            TransformPositionLens {
+                start: start_vec,
+                end: end_vec,
+            },
+        );
+        commands.spawn((SpriteSheetBundle {
+            texture_atlas: texture_atlas_handle.clone(),
+            sprite: TextureAtlasSprite{
+                index : 8, // replace this with the world texture
+                custom_size: Some(Vec2::new(64.0, 64.0)),
+                color: color,
+                ..default()
+            },
+            transform: Transform {
+                translation: start_vec.clone(),
+                rotation: Quat::from_rotation_z(PI/4.0),
+                ..default()
+            },
+            ..default()
+        },
+        Dimension{
+            name: new_world_name.to_owned(),
+            world: world_num,
+            pleroma: world.pleroma,
+        },
+        Animator::new(tween),
+        ));
+    }
+    let mut cap = 0;
+    for mut deck in query_w_deck.iter_mut(){
+        deck.capacity += balanced_worlds.len() as u16;
+        deck.capacity -= 1;
+        cap = deck.capacity;
+    }
+    for mut text in query_text_deck.iter_mut(){
+        text.sections[0].value = cap.to_string();
+    }
+    world_phase_update(4);
 }
 
 fn banish_and_replace(
@@ -578,6 +802,7 @@ fn banish_and_replace(
                 custom_size: Some(Vec2::new(64.0, 64.0)),
                 ..default()
             },
+            transform: Transform { translation: Vec3 { x: -400.+80.*card.position as f32, y: -400., z: 0. }, ..Default::default()},
             ..default()
         },
         Card{
@@ -612,7 +837,10 @@ fn push_world_polarity(
         }
         if value_incoming == 0{ return;}
         for (entity_id, mut pol) in query.iter_mut() {
-            if input.just_released(KeyCode::Key1)
+            if input.just_released(KeyCode::Key5){
+                world_phase_update(7);
+            }
+            else if input.just_released(KeyCode::Key1)
             || input.just_released(KeyCode::Key2)
             || input.just_released(KeyCode::Key3)
             || input.just_released(KeyCode::Key4) {
