@@ -60,6 +60,7 @@ struct FifthMarker{}
 #[derive(Component)]
 struct Pleromic{
     pleroma: bool,
+    dist: f32,
 }
 
 #[derive(Component)]
@@ -194,7 +195,7 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
         Dimension{
             name: "Goemorphos".to_owned(),
             world: i,
-            pleroma: false,
+            pleroma: false
         }
         ));
         commands.spawn((SpriteSheetBundle {
@@ -359,7 +360,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
                 TextLabel{
                     number: i,
                 },
-                Pleromic{ pleroma: false},
+                Pleromic{ pleroma: false, dist: 100.},
                 Active{}
             )
         );
@@ -378,7 +379,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             active: false,
         },
         Animator::new(tween),
-        Pleromic{ pleroma: false},
+        Pleromic{ pleroma: false, dist: 675.},
         Active{}
         ));
     }
@@ -434,7 +435,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
                 TextLabel{
                     number: i,
                 },
-                Pleromic{ pleroma: true},
+                Pleromic{ pleroma: true, dist: 100.},
             )
         );
         commands.spawn((SpriteSheetBundle { // cards
@@ -453,7 +454,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             active: false,
         },
         Animator::new(tween),
-        Pleromic{ pleroma: true},
+        Pleromic{ pleroma: true, dist: 675.},
         ));
     }
 
@@ -520,7 +521,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             Deck{
                 capacity: 64,
             },
-            Pleromic{ pleroma: false},
+            Pleromic{ pleroma: false, dist: 1110.},
             Active{},
         )
     );
@@ -535,7 +536,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             BalancedWorlds{
                 capacity: 0,
             },
-            Pleromic{ pleroma: false},
+            Pleromic{ pleroma: false, dist: 1110.},
             Active{},
         )
     );
@@ -575,7 +576,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             Deck{
                 capacity: 64,
             },
-            Pleromic{ pleroma: true},
+            Pleromic{ pleroma: true, dist: 1110.},
         )
     );
     commands.spawn( // world counter
@@ -589,7 +590,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             BalancedWorlds{
                 capacity: 0,
             },
-            Pleromic{ pleroma: true},
+            Pleromic{ pleroma: true, dist: 1110.},
         )
     );
 
@@ -603,7 +604,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         ..default()
     },
     Animator::new(tween),
-    Pleromic{ pleroma: false},
+    Pleromic{ pleroma: false, dist: 1110.},
     Active{},
     ));
     commands.spawn((SpriteSheetBundle { // world icon
@@ -619,7 +620,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         },
         ..default()
     },
-    Pleromic{ pleroma: false},
+    Pleromic{ pleroma: false, dist: 1110.},
     Active{},
     Animator::new(tween_bal),
     ));
@@ -654,7 +655,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         ..default()
     },
     Animator::new(tween),
-    Pleromic{ pleroma: true},
+    Pleromic{ pleroma: true, dist: 1110.},
     Active{},
     ));
     commands.spawn((SpriteSheetBundle { // world icon
@@ -671,7 +672,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
         },
         ..default()
     },
-    Pleromic{ pleroma: true},
+    Pleromic{ pleroma: true, dist: 1110.},
     Active{},
     Animator::new(tween_bal),
     ));
@@ -723,7 +724,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             ..default()
             },
             FifthMarker{},
-            Pleromic{ pleroma: false},
+            Pleromic{ pleroma: false, dist: 100.},
             Active{},
         )
     );
@@ -744,7 +745,7 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             ..default()
             },
             FifthMarker{},
-            Pleromic{ pleroma: true},
+            Pleromic{ pleroma: true, dist: 100.},
         )
     );
 
@@ -770,7 +771,7 @@ fn move_text_labels(
         for (entity_id, text, plero, trans) in query.iter_mut() {
             let text_num = text.number;
             let bump_y = if plero.pleroma { -1500.} else {0.};
-            let bump_x = if plero.pleroma && pleroma { 160.} else {-40.};
+            let bump_x = if pleroma { 160.} else {-40.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_secs(1),
@@ -814,7 +815,7 @@ fn move_text_labels(
         for (entity_id, text,plero, trans) in query.iter_mut() {
             let text_num = text.number;
             let bump_y = if plero.pleroma { -1500.} else {0.};
-            let bump_x = if plero.pleroma && pleroma { 675.} else {0.};
+            let bump_x = if pleroma { 675.} else {0.};
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_secs(1),
@@ -861,7 +862,7 @@ fn world_phase_update(new_phase: i8){
 
 fn swap_pleroma_kenoma(
     mut query_world: Query<&mut WorldManager>,
-    mut query_pleroma: Query<(Entity, &Transform), With<Pleromic>>,
+    mut query_pleroma: Query<(Entity, &Transform, &Pleromic), With<Pleromic>>,
     mut commands: Commands,
 ){
     if unsafe {
@@ -875,9 +876,10 @@ fn swap_pleroma_kenoma(
         world.kenoma = !world.kenoma;
     }
     if !current_dim{
-        for (entity_id, trans) in query_pleroma.iter_mut() {
+        for (entity_id, trans, item) in query_pleroma.iter_mut() {
             let start_vec = trans.translation;
-            let end_vec = Vec3::new(start_vec.x+675., start_vec.y, start_vec.z);
+            let dist = item.dist;
+            let end_vec = Vec3::new(start_vec.x+dist, start_vec.y, start_vec.z);
             let tween = Tween::new(
                 EaseFunction::QuadraticInOut,
                 Duration::from_millis(300),
@@ -890,13 +892,26 @@ fn swap_pleroma_kenoma(
         }
     }
     else {
-
+        for (entity_id, trans, item) in query_pleroma.iter_mut() {
+            let start_vec = trans.translation;
+            let dist = item.dist;
+            let end_vec = Vec3::new(start_vec.x-dist, start_vec.y, start_vec.z);
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_millis(300),
+                TransformPositionLens {
+                    start: start_vec,
+                    end: end_vec,
+                },
+            ).with_completed(|_entity, _tween|{world_phase_update(4)});
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
     }
     world_phase_update(-3);
 }
 
 fn claim_balanced_worlds(
-    query: Query<&PolarityMarker>,
+    query: Query<(&PolarityMarker, &Transform)>,
     mut query_worlds: Query<(Entity, &mut Dimension)>,
     mut query_w_deck: Query<&mut BalancedWorlds>,
     mut query_text_deck: Query<&mut Text, With<BalancedWorlds>>,
@@ -910,8 +925,8 @@ fn claim_balanced_worlds(
         return;
     }
     let mut balanced_worlds: Vec<u8> = Vec::new();
-    for pol in query.iter(){
-        if pol.polarity == 0{
+    for (pol , trans) in query.iter(){
+        if pol.polarity == 0 && trans.translation.y > -1000.{
             balanced_worlds.push(pol.world);
         }
     }
@@ -1003,9 +1018,6 @@ fn claim_balanced_worlds(
     let mut cap = 0;
     for mut deck in query_w_deck.iter_mut(){
         deck.capacity += balanced_worlds.len() as u16;
-        if !balanced_worlds.is_empty(){
-            deck.capacity -= 1;
-        }
         cap = deck.capacity;
     }
     for mut text in query_text_deck.iter_mut(){
@@ -1057,8 +1069,6 @@ fn banish_and_replace(
             80, 2, None, None
         );
         let texture_atlas_handle = texture_atlases.add(texture_atlas);
-        dbg!(pleroma);
-        dbg!(plero.pleroma);
         let start_vec = if plero.pleroma && pleroma{
             Vec3::new(275.+80.*card.position as f32, -1500.-400.,0. )
         } else if pleroma && !plero.pleroma{
@@ -1107,7 +1117,8 @@ fn banish_and_replace(
             active: false,
         },
         Pleromic{
-            pleroma: plero.pleroma
+            pleroma: plero.pleroma,
+            dist: 675.
         },
         Animator::new(tween),
         )); 
@@ -1127,15 +1138,23 @@ fn banish_and_replace(
 
 fn push_world_polarity(
     mut query: Query<(Entity, &mut PolarityMarker)>,
+    query_world: Query<&WorldManager>,
     mut query_cards: Query<&mut Card>,
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
 ){
     if unsafe { WORLD_PHASE } == 3{
+        let mut pleroma = false;
+        for wor in query_world.iter(){
+            if !wor.kenoma{
+                pleroma = true;
+            }
+        }
         let mut value_incoming = 0;
         for card in query_cards.iter_mut() {
             if card.active{ value_incoming = card.value}
         }
+        if pleroma {value_incoming = -value_incoming};
         if value_incoming == 0{ return;}
         for (entity_id, mut pol) in query.iter_mut() {
             if input.just_released(KeyCode::Key5){
@@ -1208,7 +1227,6 @@ fn select_card(
     mut commands: Commands,
     input: Res<Input<KeyCode>>,
 ) {
-    //dbg!(unsafe {WORLD_PHASE });
     if unsafe { WORLD_PHASE } == 0{
         for (entity_id, mut card, trans) in query.iter_mut() {
             let card_num = card.position;
