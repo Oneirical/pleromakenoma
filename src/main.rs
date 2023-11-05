@@ -51,6 +51,12 @@ struct TextLabel{
 }
 
 #[derive(Component)]
+struct SwapSpace{}
+
+#[derive(Component)]
+struct FifthMarker{}
+
+#[derive(Component)]
 struct Deck{
     capacity: u16
 }
@@ -58,7 +64,7 @@ struct Deck{
 #[derive(Event)]
 struct CardPlacedEvent(Card); 
 
-static mut WORLD_PHASE: u8 = 0;
+static mut WORLD_PHASE: i8 = 0;
 
 fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>) {
     // Rectangle
@@ -140,13 +146,12 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
         .choose_multiple(&mut rand::thread_rng(), 1)
         .collect();
         let starting_offset = *starting_offset[0];
-        let end_x : f32;
-        if starting_offset > 0{
-            end_x = 190. + (starting_offset-2) as f32*80.;
+        let end_x : f32 = if starting_offset > 0{
+            190. + (starting_offset-2) as f32*80.
         }
         else {
-            end_x = -110. + (starting_offset+1) as f32*80.;
-        }
+            -110. + (starting_offset+1) as f32*80.
+        };
         commands.spawn(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle.clone(),
             sprite: TextureAtlasSprite{
@@ -262,6 +267,14 @@ fn setup(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atl
 }
 
 fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>){
+    let img_path = "spritesheet.png".to_owned();
+    let texture_handle = asset_server.load(&img_path);
+    let texture_atlas = TextureAtlas::from_grid(
+        texture_handle,
+        Vec2::new(16.0, 16.0),
+        80, 2, None, None
+    );
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
     for i in 0..4_u8{
         let img_path = "spritesheet.png".to_owned();
         let card_value = rand::thread_rng().gen_range(1..7);
@@ -327,13 +340,111 @@ fn distribute_starting_cards(mut commands: Commands, asset_server: Res<AssetServ
             active: false,
         },
         Animator::new(tween),
-    ));
+        ));
     }
+    let tween_deck = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time.
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3 { x: -480., y: -400., z: 0. },
+            end: Vec3::new(-480., -218., 0.),
+        },
+    );
+    let tween = Tween::new(
+        // Use a quadratic easing on both endpoints.
+        EaseFunction::QuadraticInOut,
+        // Animation time.
+        Duration::from_secs(1),
+        TransformPositionLens {
+            start: Vec3 { x: -520., y: -400., z: 0. },
+            end: Vec3::new(-520., -220., 0.),
+        },
+    );
+    let font = asset_server.load("Play-Regular.ttf");
+    let text_style = TextStyle {
+        font: font.clone(),
+        font_size: 30.0,
+        color: Color::WHITE,
+    };
+    let text_alignment = TextAlignment::Center;
+    commands.spawn(
+        (
+            Text2dBundle {
+                text: Text::from_section("64", text_style.clone())
+                .with_alignment(text_alignment),
+            ..default()
+            },
+            Animator::new(tween_deck),
+            Deck{
+                capacity: 64,
+            }
+        )
+    );
+    commands.spawn((SpriteSheetBundle {
+        texture_atlas: texture_atlas_handle.clone(),
+        sprite: TextureAtlasSprite{
+            index : 10_usize,
+            custom_size: Some(Vec2::new(32.0, 32.0)),
+            ..default()
+        },
+        ..default()
+    },
+    Animator::new(tween),
+    ));
+    commands.spawn((SpriteSheetBundle {
+        texture_atlas: texture_atlas_handle.clone(),
+        sprite: TextureAtlasSprite{
+            index : 11_usize,
+            custom_size: Some(Vec2::new(64.0, 64.0)),
+            ..default()
+        },
+        transform: Transform {
+            translation: Vec3{ x: 0., y: -500., z: 0.0},
+            ..default()
+        },
+        ..default()
+    },
+    SwapSpace{},
+    ));
+    commands.spawn((SpriteSheetBundle {
+        texture_atlas: texture_atlas_handle.clone(),
+        sprite: TextureAtlasSprite{
+            index : 11_usize,
+            custom_size: Some(Vec2::new(64.0, 64.0)),
+            color: Color::rgb(0.0, 0.0, 0.0),
+            ..default()
+        },
+        transform: Transform {
+            translation: Vec3::new(120.0, -2000.0, 0.),
+            ..default()
+        },
+        ..default()
+    },
+    SwapSpace{},
+    ));
+    commands.spawn(
+        (
+            Text2dBundle {
+                text: Text::from_section("5", text_style.clone())
+                .with_alignment(text_alignment),
+                transform: Transform {
+                    translation: Vec3{ x: -40., y: -500., z: 0.0},
+                    ..default()
+                },
+            ..default()
+            },
+            FifthMarker{},
+        )
+    );
 
 }
 
 fn move_text_labels(
     mut query: Query<(Entity, &mut TextLabel)>,
+    query_swap: Query<(Entity, &Transform), With<SwapSpace>>,
+    query_swap_text: Query<Entity, With<FifthMarker>>,
     mut commands: Commands,
 ){
     if unsafe {
@@ -356,6 +467,40 @@ fn move_text_labels(
             world_phase_update(2);
     
         }
+        for (entity_id, transform) in query_swap.iter(){
+            let start_vec = if transform.translation.y < -1500.{
+                Vec3::new(120., -2000., 0.)
+            }
+            else{
+                Vec3::new(0., -500., 0.)
+            };
+            let end_vec = if transform.translation.y < -1500.{
+                Vec3::new(120., -1710., 0.)
+            }
+            else{
+                Vec3::new(0., -210., 0.)
+            };
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    start: start_vec,
+                    end: end_vec,
+                },
+            );
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
+        for entity_id in query_swap_text.iter(){
+            let tween = Tween::new(
+                EaseFunction::QuadraticInOut,
+                Duration::from_secs(1),
+                TransformPositionLens {
+                    start: Vec3::new(-40., -500., 0.),
+                    end: Vec3::new(-40., -250., 0.),
+                },
+            );
+            commands.entity(entity_id).insert(Animator::new(tween));
+        }
     }
     else if (unsafe { WORLD_PHASE } == 5){
         for (entity_id, text) in query.iter_mut() {
@@ -376,7 +521,7 @@ fn move_text_labels(
 
 }
 
-fn world_phase_update(new_phase: u8){
+fn world_phase_update(new_phase: i8){
     unsafe {
         WORLD_PHASE = new_phase;
     }
@@ -384,6 +529,8 @@ fn world_phase_update(new_phase: u8){
 
 fn banish_and_replace(
     mut query: Query<(Entity, &mut Card)>,
+    mut query_text_deck: Query<&mut Text, With<Deck>>,
+    mut query_deck: Query<&mut Deck>,
     mut commands: Commands,
     asset_server: Res<AssetServer>, mut texture_atlases: ResMut<Assets<TextureAtlas>>
 ){
@@ -441,6 +588,14 @@ fn banish_and_replace(
         Animator::new(tween),
     ));
         world_phase_update(5);
+    }
+    let mut cap = 64;
+    for mut deck in query_deck.iter_mut(){
+        deck.capacity -= 1;
+        cap = deck.capacity;
+    }
+    for mut text in query_text_deck.iter_mut(){
+        text.sections[0].value = cap.to_string();
     }
 }
 
