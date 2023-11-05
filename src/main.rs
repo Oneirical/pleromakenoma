@@ -911,7 +911,9 @@ fn swap_pleroma_kenoma(
 }
 
 fn claim_balanced_worlds(
-    query: Query<(&PolarityMarker, &Transform)>,
+    mut query: Query<(Entity, &mut PolarityMarker, &Transform)>,
+    query_card: Query<&Card>,
+    query_world: Query<&WorldManager>,
     mut query_worlds: Query<(Entity, &mut Dimension)>,
     mut query_w_deck: Query<&mut BalancedWorlds>,
     mut query_text_deck: Query<&mut Text, With<BalancedWorlds>>,
@@ -924,8 +926,18 @@ fn claim_balanced_worlds(
     }{
         return;
     }
+    let mut card_offset = 0;
+    for card in query_card.iter() {
+        if !card.active{
+            continue;
+        }
+        card_offset = card.value;
+    }
+    for world in query_world.iter(){
+        if world.kenoma {card_offset = -card_offset};
+    }
     let mut balanced_worlds: Vec<u8> = Vec::new();
-    for (pol , trans) in query.iter(){
+    for (_entity_id, pol , trans) in query.iter(){
         if pol.polarity == 0 && trans.translation.y > -1000.{
             balanced_worlds.push(pol.world);
         }
@@ -1014,6 +1026,38 @@ fn claim_balanced_worlds(
         },
         Animator::new(tween),
         ));
+    }
+    for (entity_id, mut pol, trans) in query.iter_mut(){
+        if !balanced_worlds.contains(&pol.world){
+            continue;
+        }
+        assert!(pol.polarity == 0);
+        pol.polarity = card_offset;
+        assert!(pol.polarity != 0);
+        let end_x;
+        let end_vector: Vec3;
+        if pol.polarity > 0{
+            end_x = 190. + (pol.polarity-2) as f32*80.;
+        }
+        else {
+            end_x = -110. + (pol.polarity+1) as f32*80.;
+        }
+        if pol.dimension{
+            end_vector = Vec3::new(end_x+120., -1500.+260.0-(pol.world as f32 * 120.0), 0.);
+        }
+        else {
+            end_vector = Vec3::new(end_x, 260.0-(pol.world as f32 * 120.0), 0.);
+        }
+        let tween = Tween::new(
+            EaseFunction::BackInOut,
+            Duration::from_secs(1),
+            TransformPositionLens {
+                start: trans.translation,
+                end: end_vector
+            },
+        );
+        commands.entity(entity_id).insert(Animator::new(tween));
+
     }
     let mut cap = 0;
     for mut deck in query_w_deck.iter_mut(){
