@@ -7,16 +7,8 @@ A 48 hour project for the Concordia Game Jam. Play it here: https://oneirical.it
 
 Made in Rust 🦀 with the Bevy 🕊️ engine.
 
-    Rust: https://www.rust-lang.org/
-    Bevy: https://bevyengine.org/
-
-***
-
-Modifiers:
-
-    A Thousand Words
-    The Big Three
-    Zen
+Rust: https://www.rust-lang.org/
+Bevy: https://bevyengine.org/
 
 ***
 
